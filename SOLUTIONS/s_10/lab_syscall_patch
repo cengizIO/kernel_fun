@@ -1,0 +1,47 @@
+Signed-off-by: Jerry Cooperstein <coop@linuxfoundation.org>
+
+diff -Nur linux-5.3/arch/x86/entry/syscalls/syscall_32.tbl linux-5.3_patched/arch/x86/entry/syscalls/syscall_32.tbl
+--- linux-5.3/arch/x86/entry/syscalls/syscall_32.tbl	2019-08-11 15:26:41.000000000 -0500
++++ linux-5.3_patched/arch/x86/entry/syscalls/syscall_32.tbl	2019-08-14 09:14:39.987815999 -0500
+@@ -440,3 +440,4 @@
+ 433	i386	fspick			sys_fspick			__ia32_sys_fspick
+ 434	i386	pidfd_open		sys_pidfd_open			__ia32_sys_pidfd_open
+ 435	i386	clone3			sys_clone3			__ia32_sys_clone3
++436	i386	my_syscall		sys_my_syscall			__ia32_sys_my_syscall
+diff -Nur linux-5.3/arch/x86/entry/syscalls/syscall_64.tbl linux-5.3_patched/arch/x86/entry/syscalls/syscall_64.tbl
+--- linux-5.3/arch/x86/entry/syscalls/syscall_64.tbl	2019-08-11 15:26:41.000000000 -0500
++++ linux-5.3_patched/arch/x86/entry/syscalls/syscall_64.tbl	2019-08-14 09:15:36.447819023 -0500
+@@ -357,6 +357,7 @@
+ 433	common	fspick			__x64_sys_fspick
+ 434	common	pidfd_open		__x64_sys_pidfd_open
+ 435	common	clone3			__x64_sys_clone3/ptregs
++435	common	my_syscall		__x64_sys_my_syscall
+ 
+ #
+ # x32-specific system call numbers start at 512 to avoid cache impact
+diff -Nur linux-5.3/kernel/sys.c linux-5.3_patched/kernel/sys.c
+--- linux-5.3/kernel/sys.c	2019-08-11 15:26:41.000000000 -0500
++++ linux-5.3_patched/kernel/sys.c	2019-08-14 09:16:35.577822190 -0500
+@@ -2655,3 +2655,22 @@
+ 	return 0;
+ }
+ #endif /* CONFIG_COMPAT */
++
++/* Adding a dynamical system call */
++struct my_sc_struct {
++	long (*fun)(unsigned long p1);
++} my_sc = {
++	NULL};
++EXPORT_SYMBOL(my_sc);
++
++SYSCALL_DEFINE1(my_syscall, unsigned long, p1)
++{
++	struct my_sc_struct *s = (struct my_sc_struct *)&my_sc;
++
++	pr_info("Entering my_syscall with p1 = %ld at jiffies=%ld\n",
++		p1, jiffies);
++	if (!s || !s->fun)
++		return -ENOSYS;
++	return s->fun(p1);
++}
++
